@@ -1,0 +1,147 @@
+```{r}
+library(tidyverse)
+library(viridis)
+library(p8105.datasets)
+library(flexdashboard)
+library(plotly)
+library(httr)
+library(jsonlite)
+
+knitr::opts_chunk$set(
+	echo = TRUE,
+	warning = FALSE,
+	fig.width = 8, 
+  fig.height = 6,
+  out.width = "90%"
+)
+options(
+  ggplot2.continuous.colour = "viridis",
+  ggplot2.continuous.fill = "viridis"
+)
+scale_colour_discrete = scale_colour_viridis_d
+scale_fill_discrete = scale_fill_viridis_d
+theme_set(theme_minimal() + theme(legend.position = "bottom"))
+```
+
+
+```{r, echo=FALSE}
+get_all_inspections = function(url) {
+  
+  all_inspections = vector("list", length = 0)
+  
+  loop_index = 1
+  chunk_size = 50000
+  DO_NEXT = TRUE
+  
+  while (DO_NEXT) {
+    message("Getting data, page ", loop_index)
+    
+    all_inspections[[loop_index]] = 
+      GET(url,
+          query = list(`$order` = "zipcode",
+                       `$limit` = chunk_size,
+                       `$offset` = as.integer((loop_index - 1) * chunk_size)
+                       )
+          ) %>%
+      content("text") %>%
+      fromJSON() %>%
+      as_tibble()
+    
+    DO_NEXT = dim(all_inspections[[loop_index]])[1] == chunk_size
+    loop_index = loop_index + 1
+  }
+  
+  all_inspections
+  
+}
+
+url = "https://data.cityofnewyork.us/resource/43nn-pn8j.json"
+
+nyc_inspections = get_all_inspections(url) %>%
+  bind_rows() 
+```
+
+```{r, echo=FALSE}
+nyc_inspections_bk= 
+  nyc_inspections %>% 
+  filter(
+    !is.na(grade),
+    boro=="Brooklyn"
+  ) %>% 
+  mutate(
+    critical_flag = factor(critical_flag, levels=c("Y","N"), labels=c("Yes","No"))
+  ) %>% 
+  group_by (camis) %>% 
+  filter(
+    inspection_date==max(inspection_date)
+    ) %>% 
+  ungroup()
+```
+
+# Chart 1
+```{r, echo=FALSE}
+nyc_inspections_bk_pizza= 
+  nyc_inspections_bk %>% 
+  filter(
+    cuisine_description=="Pizza"
+  )
+
+nyc_inspections_bk_pizza %>% 
+  mutate(
+    text_label = str_c("Name: ", dba, "\nGrade: ", grade, "\nViolation: ", violation_description, "\nCritical Violation? ", critical_flag)
+    ) %>% 
+  plot_ly(
+    x = ~latitude, y = ~longitude, type = "scatter", mode = "markers",
+    color = ~grade, text = ~text_label
+  ) %>% 
+  layout(
+    xaxis = list(
+      dtick = 35, 
+      tick0 = 40, 
+      tickmode = "linear"),
+    yaxis = list(
+      dtick = 35, 
+      tick0 = 40, 
+      tickmode = "linear")
+    )
+```
+
+# Chart 2
+```{r, echo=FALSE}
+most_pop_food = 
+  nyc_inspections_bk %>% 
+  count(cuisine_description, sort = TRUE) %>% 
+  top_n(10) %>% 
+  select(cuisine_description)
+
+inner_join(nyc_inspections_bk, most_pop_food, by="cuisine_description") %>% 
+  mutate(score = as.numeric(score), 
+         cuisine_description = fct_reorder(cuisine_description, score)
+    ) %>% 
+  filter(
+    grade %in% c("A", "B", "C")
+  ) %>% 
+  plot_ly(y = ~score, x = ~cuisine_description, color = ~grade, type = "box")
+```
+
+# Chart 3
+```{r, echo=FALSE}
+inner_join(nyc_inspections_bk, most_pop_food, by="cuisine_description") %>% 
+  filter(
+    grade=="C"
+  ) %>%
+  count(cuisine_description) %>% 
+  plot_ly(x = ~cuisine_description, y = ~n, color = ~cuisine_description, type="bar")
+```
+
+
+
+
+
+
+
+
+
+
+
+
