@@ -1,4 +1,12 @@
-```{r}
+---
+title: "Brooklyn Food"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: columns
+    vertical_layout: fill
+---
+
+```{r, echo=FALSE, message=FALSE}
 library(tidyverse)
 library(viridis)
 library(p8105.datasets)
@@ -24,7 +32,7 @@ theme_set(theme_minimal() + theme(legend.position = "bottom"))
 ```
 
 
-```{r, echo=FALSE}
+```{r, echo=FALSE, message=FALSE}
 get_all_inspections = function(url) {
   
   all_inspections = vector("list", length = 0)
@@ -59,6 +67,8 @@ url = "https://data.cityofnewyork.us/resource/43nn-pn8j.json"
 
 nyc_inspections = get_all_inspections(url) %>%
   bind_rows() 
+
+set.seed(1)
 ```
 
 ```{r, echo=FALSE}
@@ -78,17 +88,18 @@ nyc_inspections_bk=
   ungroup()
 ```
 
-# Chart 1
-```{r, echo=FALSE}
+# Brooklyn's Pizzarias Most Recent Inspection Summaries
+```{r, echo=FALSE, message=FALSE}
 nyc_inspections_bk_pizza= 
   nyc_inspections_bk %>% 
   filter(
     cuisine_description=="Pizza"
   )
 
-nyc_inspections_bk_pizza %>% 
+nyc_inspections_bk_pizza %>%
+  unite(address, c(building, street), sep=" ", remove = FALSE) %>% 
   mutate(
-    text_label = str_c("Name: ", dba, "\nGrade: ", grade, "\nViolation: ", violation_description, "\nCritical Violation? ", critical_flag)
+    text_label = str_c("Name: ", dba, "\nAddress: ", address, "\nGrade: ", grade, "\nViolation: ", violation_description, "\nCritical Violation? ", critical_flag)
     ) %>% 
   plot_ly(
     x = ~latitude, y = ~longitude, type = "scatter", mode = "markers",
@@ -106,8 +117,8 @@ nyc_inspections_bk_pizza %>%
     )
 ```
 
-# Chart 2
-```{r, echo=FALSE}
+# Score by Grade for the 10 Most Prevalent Cuisine Types in Brooklyn
+```{r, echo=FALSE, message=FALSE}
 most_pop_food = 
   nyc_inspections_bk %>% 
   count(cuisine_description, sort = TRUE) %>% 
@@ -124,7 +135,7 @@ inner_join(nyc_inspections_bk, most_pop_food, by="cuisine_description") %>%
   plot_ly(y = ~score, x = ~cuisine_description, color = ~grade, type = "box")
 ```
 
-# Chart 3
+# Number of Restaurants with C Grades amongst the 10 Most Prevalent Cuisine Types in Brooklyn
 ```{r, echo=FALSE}
 inner_join(nyc_inspections_bk, most_pop_food, by="cuisine_description") %>% 
   filter(
