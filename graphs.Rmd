@@ -1,4 +1,12 @@
-```{r, echo=FALSE, message=FALSE}
+---
+title: "Brooklyn Food"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: columns
+    vertical_layout: fill
+---
+
+```{r setup, echo=FALSE, message=FALSE}
 library(tidyverse)
 library(viridis)
 library(p8105.datasets)
